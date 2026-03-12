@@ -1,3 +1,8 @@
+![GitHub stars](https://img.shields.io/github/stars/USERNAME/rootprime-recon-framework)
+![GitHub forks](https://img.shields.io/github/forks/USERNAME/rootprime-recon-framework)
+![GitHub issues](https://img.shields.io/github/issues/USERNAME/rootprime-recon-framework)
+![License](https://img.shields.io/github/license/USERNAME/rootprime-recon-framework)
+
 # rootprime-recon-framework
 Root Prime Recon Framework is a powerful automated recon toolkit that combines multiple security tools to perform fast and organized reconnaissance for bug bounty hunters and pentesters.
 
