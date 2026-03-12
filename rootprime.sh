@@ -1,158 +1,158 @@
 #!/usr/bin/env bash
 
-# Root Prime Recon Framework
-# Author: Root Prime
+# Root Prime Recon Framework v2
+# Advanced Recon Toolkit
 
 set -e
 
-OUTPUT_DIR="output"
+OUTPUT="output"
+
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+BLUE='\033[1;34m'
+CYAN='\033[1;36m'
+RESET='\033[0m'
 
 banner() {
-echo "=========================================="
-echo "        ROOT PRIME RECON FRAMEWORK"
-echo "=========================================="
+clear
+echo -e "${GREEN}"
+echo "██████╗  ██████╗  ██████╗ ████████╗"
+echo "██╔══██╗██╔═══██╗██╔═══██╗╚══██╔══╝"
+echo "██████╔╝██║   ██║██║   ██║   ██║"
+echo "██╔══██╗██║   ██║██║   ██║   ██║"
+echo "██║  ██║╚██████╔╝╚██████╔╝   ██║"
+echo "╚═╝  ╚═╝ ╚═════╝  ╚═════╝    ╚═╝"
+echo ""
+echo "ROOT PRIME RECON FRAMEWORK v2"
+echo -e "${RESET}"
 }
 
-check_tool() {
-if ! command -v "$1" >/dev/null 2>&1; then
-echo "[!] $1 not found. Installing..."
+install_tools(){
+
+echo -e "${CYAN}Installing recon tools...${RESET}"
+
 sudo apt update
-sudo apt install -y "$1"
-else
-echo "[+] $1 installed"
-fi
-}
 
-install_tools() {
+sudo apt install -y subfinder assetfinder amass httpx gau waybackurls \
+naabu nuclei whatweb ffuf gobuster hakrawler jq
 
-echo "[*] Installing required tools..."
-
-check_tool subfinder
-check_tool assetfinder
-check_tool amass
-check_tool httpx
-check_tool gau
-check_tool waybackurls
-check_tool naabu
-check_tool nuclei
-check_tool whatweb
-check_tool ffuf
-check_tool gobuster
-
-echo "[+] Tool installation finished"
+echo -e "${GREEN}Tools installed${RESET}"
 
 }
 
-subdomain_scan() {
+subdomain_enum(){
 
-read -rp "Enter Target Domain: " domain
+read -p "Target domain: " domain
 
-mkdir -p "$OUTPUT_DIR/$domain"
-cd "$OUTPUT_DIR/$domain"
+mkdir -p $OUTPUT/$domain
+cd $OUTPUT/$domain
 
-echo "[+] Running Subfinder"
-subfinder -d "$domain" -silent > subfinder.txt || true
+echo -e "${BLUE}Subdomain enumeration...${RESET}"
 
-echo "[+] Running Assetfinder"
-assetfinder --subs-only "$domain" > assetfinder.txt || true
+subfinder -d $domain -silent > subfinder.txt &
+assetfinder --subs-only $domain > assetfinder.txt &
+amass enum -passive -d $domain > amass.txt &
 
-echo "[+] Running Amass"
-amass enum -passive -d "$domain" > amass.txt || true
-
-echo "[+] Merging Subdomains"
-cat subfinder.txt assetfinder.txt amass.txt | sort -u > all_subdomains.txt
-
-echo "[+] Checking Live Hosts"
-cat all_subdomains.txt | httpx -status-code -silent > live_status.txt || true
-
-echo "[+] Filtering Status Codes"
-
-grep "200" live_status.txt > status_200.txt || true
-grep "301" live_status.txt > status_301.txt || true
-grep "403" live_status.txt > status_403.txt || true
-
-echo "[+] Finding Login Pages"
-
-grep -Ei "login|signin|auth|account|dashboard" live_status.txt > login_pages.txt || true
-
-echo "[+] Technology Detection"
-
-while read -r url; do
-whatweb "$url" >> technologies.txt 2>/dev/null || true
-done < <(awk '{print $1}' status_200.txt)
-
-echo "[+] Vulnerability Scan"
-
-awk '{print $1}' status_200.txt | nuclei -silent >> vulnerabilities.txt || true
-
-echo "[+] Scan Completed"
-
-cd ../../
-}
-
-full_recon() {
-
-read -rp "Enter Target Domain: " domain
-
-mkdir -p "$OUTPUT_DIR/$domain"
-cd "$OUTPUT_DIR/$domain"
-
-echo "[+] Subdomain Enumeration"
-
-subfinder -d "$domain" -silent > subfinder.txt || true
-assetfinder --subs-only "$domain" > assetfinder.txt || true
-amass enum -passive -d "$domain" > amass.txt || true
+wait
 
 cat *.txt | sort -u > subdomains.txt
 
-echo "[+] Live Host Detection"
-
-cat subdomains.txt | httpx -silent > live_hosts.txt || true
-
-echo "[+] URL Collection"
-
-cat live_hosts.txt | gau > urls.txt || true
-
-echo "[+] Directory Discovery"
-
-while read -r url; do
-ffuf -u "$url/FUZZ" -w /usr/share/wordlists/dirb/common.txt -mc 200 >> directories.txt 2>/dev/null || true
-done < live_hosts.txt
-
-echo "[+] Port Scanning"
-
-cat live_hosts.txt | naabu -silent > open_ports.txt || true
-
-echo "[+] Vulnerability Scan"
-
-cat live_hosts.txt | nuclei -silent > vulnerabilities.txt || true
-
-echo "[+] Full Recon Finished"
+echo -e "${GREEN}Subdomains collected${RESET}"
 
 cd ../../
 }
 
-menu() {
+live_hosts(){
+
+read -p "Target domain: " domain
+
+cd $OUTPUT/$domain
+
+echo -e "${BLUE}Checking live hosts...${RESET}"
+
+cat subdomains.txt | httpx -silent > live.txt
+
+cd ../../
+}
+
+js_endpoints(){
+
+read -p "Target domain: " domain
+
+cd $OUTPUT/$domain
+
+echo -e "${BLUE}Collecting JS files...${RESET}"
+
+cat live.txt | gau | grep "\.js" > js_files.txt
+
+echo -e "${BLUE}Extracting endpoints...${RESET}"
+
+cat js_files.txt | xargs -I % curl -s % | \
+grep -Eo "(http|https)://[a-zA-Z0-9./?=_-]*" \
+> js_endpoints.txt
+
+cd ../../
+}
+
+api_finder(){
+
+read -p "Target domain: " domain
+
+cd $OUTPUT/$domain
+
+echo -e "${BLUE}Searching API endpoints...${RESET}"
+
+grep -Ei "api|v1|v2|graphql|rest" urls.txt \
+> api_endpoints.txt || true
+
+cd ../../
+}
+
+admin_finder(){
+
+read -p "Target domain: " domain
+
+cd $OUTPUT/$domain
+
+echo -e "${BLUE}Finding admin panels...${RESET}"
+
+cat live.txt | while read url
+do
+ffuf -u $url/FUZZ -w /usr/share/wordlists/dirb/common.txt \
+-mc 200 -t 50 2>/dev/null | \
+grep -Ei "admin|dashboard|panel" >> admin_panels.txt
+done
+
+cd ../../
+}
+
+menu(){
 
 echo ""
-echo "1. Install Required Tools"
-echo "2. Subdomain Recon"
-echo "3. Full Recon Automation"
+echo "1. Install Tools"
+echo "2. Subdomain Enumeration"
+echo "3. Live Host Detection"
+echo "4. JS Endpoint Finder"
+echo "5. API Endpoint Finder"
+echo "6. Admin Panel Finder"
 echo "0. Exit"
 echo ""
 
-read -rp "Select Option: " option
+read -p "Select option: " opt
 
-case $option in
+case $opt in
 
 1) install_tools ;;
-2) subdomain_scan ;;
-3) full_recon ;;
+2) subdomain_enum ;;
+3) live_hosts ;;
+4) js_endpoints ;;
+5) api_finder ;;
+6) admin_finder ;;
 0) exit ;;
-*) echo "Invalid option" ;;
+
+*) echo "Invalid option"
 
 esac
-
 }
 
 banner
