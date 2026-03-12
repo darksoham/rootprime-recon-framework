@@ -90,7 +90,7 @@ Vulnerability Scanning
 Clone the repository:
 
 ```
-git clone https://github.com/YOURUSERNAME/rootprime-recon-framework.git
+git clone https://github.com/darksoham/rootprime-recon-framework.git
 ```
 
 Enter the directory:
